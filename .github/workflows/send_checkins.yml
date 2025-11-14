@@ -1,0 +1,67 @@
+name: Send Daily Checkins & Report
+
+on:
+  schedule:
+    # Check-ins at 9am, 12pm, 3pm, 6pm, 9pm UTC
+    # Adjust the hour based on your timezone offset from UTC
+    - cron: '0 9 * * *'   # 9am UTC
+    - cron: '0 12 * * *'  # 12pm UTC
+    - cron: '0 15 * * *'  # 3pm UTC
+    - cron: '0 18 * * *'  # 6pm UTC
+    - cron: '0 21 * * *'  # 9pm UTC
+    - cron: '0 22 * * *'  # 10pm UTC (final report)
+  workflow_dispatch:
+
+jobs:
+  send-checkin-or-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine endpoint
+        id: endpoint
+        run: |
+          HOUR=$(date -u +%H)
+          if [ "$HOUR" = "22" ]; then
+            echo "endpoint=report" >> $GITHUB_OUTPUT
+          else
+            echo "endpoint=checkin" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send check-in
+        if: steps.endpoint.outputs.endpoint == 'checkin'
+        env:
+          BASE_URL: ${{ secrets.CHECKIN_BASE_URL }}
+        run: |
+          if [ -z "$BASE_URL" ]; then
+            echo "CHECKIN_BASE_URL secret not set"
+            exit 1
+          fi
+          echo "Sending check-in at $(date -u)"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/whatsapp/checkin" -H "Content-Type: application/json" -d '{}')
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "HTTP status: $HTTP_STATUS"
+          echo "Response: $BODY"
+          if [ "$HTTP_STATUS" -ge 400 ]; then
+            echo "Check-in POST returned $HTTP_STATUS"
+            exit 1
+          fi
+
+      - name: Send daily report
+        if: steps.endpoint.outputs.endpoint == 'report'
+        env:
+          BASE_URL: ${{ secrets.CHECKIN_BASE_URL }}
+        run: |
+          if [ -z "$BASE_URL" ]; then
+            echo "CHECKIN_BASE_URL secret not set"
+            exit 1
+          fi
+          echo "Sending daily report at $(date -u)"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/whatsapp/checkin/report" -H "Content-Type: application/json" -d '{}')
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "HTTP status: $HTTP_STATUS"
+          echo "Response: $BODY"
+          if [ "$HTTP_STATUS" -ge 400 ]; then
+            echo "Report POST returned $HTTP_STATUS"
+            exit 1
+          fi
