@@ -39,12 +39,14 @@ export async function GET(request: NextRequest) {
     // Fetch meal_logs & habit_logs for last 48h and filter similarly
     let mealsQuery = supabaseAdmin.from('meal_logs').select('*').gte('created_at', since);
     if (userId) mealsQuery = mealsQuery.eq('user_id', userId);
-    const { data: mealLogs = [] } = await mealsQuery;
+    const { data: mealsData } = await mealsQuery;
+    const mealLogs = mealsData || [];
     const todaysMeals = mealLogs.filter((m: any) => localDateStr(m.created_at) === todayStr);
 
     let habitsQuery = supabaseAdmin.from('habit_logs').select('*').gte('created_at', since);
     if (userId) habitsQuery = habitsQuery.eq('user_id', userId);
-    const { data: habitLogs = [] } = await habitsQuery;
+    const { data: habitsData } = await habitsQuery;
+    const habitLogs = habitsData || [];
     const todaysHabits = habitLogs.filter((h: any) => localDateStr(h.created_at) === todayStr);
 
     // Aggregate summary
@@ -74,7 +76,8 @@ export async function GET(request: NextRequest) {
     // Get today's manual calories burned (from daily_burns)
     let burnsQuery = supabaseAdmin.from('daily_burns').select('*').eq('date', todayStr);
     if (userId) burnsQuery = burnsQuery.eq('user_id', userId);
-    const { data: burns = [] } = await burnsQuery;
+    const { data: burnsData } = await burnsQuery;
+    const burns = burnsData || [];
     const caloriesBurned = burns?.[0]?.calories_burned || 0;
 
     const summary = {
