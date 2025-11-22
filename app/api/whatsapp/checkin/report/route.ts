@@ -21,6 +21,14 @@ function getHourInTimezone(tz = 'UTC') {
 // POST: Generate and send daily summary report at 10pm
 export async function POST(request: NextRequest) {
   try {
+    // Optional: verify cron secret when set. Twilio webhook won't set this header,
+    // so keep it optional (only enforced if CRON_SECRET is configured in Vercel/GitHub).
+    const cronSecret = process.env.CRON_SECRET;
+    const incomingToken = request.headers.get('x-cron-token');
+    if (cronSecret && incomingToken !== cronSecret) {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json().catch(() => ({}));
     const { userId: bodyUserId } = body || {};
 

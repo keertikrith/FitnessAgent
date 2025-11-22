@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
     const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     let checkinsQuery = supabaseAdmin.from('ai_checkins').select('*').gte('scheduled_at', since);
     if (userId) checkinsQuery = checkinsQuery.eq('user_id', userId);
-    const { data: checkins = [] } = await checkinsQuery;
+    const { data: checkinsData } = await checkinsQuery;
+    const checkins = checkinsData || [];
 
     const todaysCheckins = checkins.filter((c: any) => localDateStr(c.scheduled_at || c.created_at) === todayStr);
 

@@ -26,42 +26,48 @@ jobs:
             echo "endpoint=checkin" >> $GITHUB_OUTPUT
           fi
 
-      - name: Send check-in
-        if: steps.endpoint.outputs.endpoint == 'checkin'
-        env:
-          BASE_URL: ${{ secrets.CHECKIN_BASE_URL }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
         run: |
-          if [ -z "$BASE_URL" ]; then
-            echo "CHECKIN_BASE_URL secret not set"
-            exit 1
-          fi
-          echo "Sending check-in at $(date -u)"
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/whatsapp/checkin" -H "Content-Type: application/json" -d '{}')
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          echo "HTTP status: $HTTP_STATUS"
-          echo "Response: $BODY"
-          if [ "$HTTP_STATUS" -ge 400 ]; then
-            echo "Check-in POST returned $HTTP_STATUS"
-            exit 1
+          if [ -f package-lock.json ]; then
+            npm ci --prefer-offline --no-audit --progress=false
+          else
+            npm install --no-audit --no-fund
           fi
 
-      - name: Send daily report
+      - name: Run check-in script
+        if: steps.endpoint.outputs.endpoint == 'checkin'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
+          CHECKIN_USER_ID: ${{ secrets.CHECKIN_USER_ID }}
+          CHECKIN_USER_PHONE: ${{ secrets.CHECKIN_USER_PHONE }}
+          CHECKIN_TIMEZONE: ${{ secrets.CHECKIN_TIMEZONE }}
+        run: |
+          echo "Running check-in script at $(date -u)"
+          node scripts/send_checkins.js
+
+      - name: Run report script
         if: steps.endpoint.outputs.endpoint == 'report'
         env:
-          BASE_URL: ${{ secrets.CHECKIN_BASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
+          CHECKIN_USER_ID: ${{ secrets.CHECKIN_USER_ID }}
+          CHECKIN_USER_PHONE: ${{ secrets.CHECKIN_USER_PHONE }}
+          CHECKIN_TIMEZONE: ${{ secrets.CHECKIN_TIMEZONE }}
         run: |
-          if [ -z "$BASE_URL" ]; then
-            echo "CHECKIN_BASE_URL secret not set"
-            exit 1
-          fi
-          echo "Sending daily report at $(date -u)"
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/whatsapp/checkin/report" -H "Content-Type: application/json" -d '{}')
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          echo "HTTP status: $HTTP_STATUS"
-          echo "Response: $BODY"
-          if [ "$HTTP_STATUS" -ge 400 ]; then
-            echo "Report POST returned $HTTP_STATUS"
-            exit 1
-          fi
+          echo "Running report script at $(date -u)"
+          node scripts/send_report.js
