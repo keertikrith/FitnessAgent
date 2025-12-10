@@ -5,7 +5,7 @@
 */
 
 const twilio = require('twilio');
-const fetch = require('node-fetch');
+// Use native fetch (available in Node 18+)
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
